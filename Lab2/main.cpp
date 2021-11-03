@@ -87,7 +87,7 @@ int main() {
     std::cin >> choice;
     std::cout << "Number of iterations\n===>";
     std::cin >> iter;
-    if (iter <= 0 || iter > 10000)throw std::invalid_argument("Wrong number");
+    if (iter <= 0 || iter > 100000)throw std::invalid_argument("Wrong number");
     std::vector<double> result;
 
     switch (choice) {
@@ -106,8 +106,6 @@ int main() {
         default:
             throw std::invalid_argument("Wrong number");
     }
-
-
 
     //auto result = hill_climbing(ackley, ackley_domain, ackley_p0, 100);
     //auto result = hill_climbing(beale, beale_domain, beale_p0, 1000);

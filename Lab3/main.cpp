@@ -1,13 +1,15 @@
+#include <algorithm>
 #include <functional>
 #include <iomanip>
 #include <iostream>
 #include <random>
 #include <vector>
-#include <cstdlib>
-#include <cmath>
 
-std::random_device rd;
-std::mt19937 gen(rd());
+using namespace std;
+
+
+random_device rd;
+mt19937 mt_generator(rd());
 
 std::vector<double>
 hill_climbing(std::function<double(std::vector<double>)> f, std::function<bool(std::vector<double>)> f_domain,
@@ -20,7 +22,7 @@ hill_climbing(std::function<double(std::vector<double>)> f, std::function<bool(s
     for (int i = 0; i < iterations; i++) {
         auto p2 = p;
 
-        p[distrib(gen)] += distrib_r(gen);
+        p[distrib(mt_generator)] += distrib_r(mt_generator);
         double y2 = f(p2);
         if (y2 < f(p)) {
             p = p2;
@@ -36,6 +38,37 @@ std::ostream &operator<<(std::ostream &o, std::vector<double> v) {
     return o;
 }
 
+vector<double> simulated_annealing(
+        function<double(vector<double>)> f,
+        function<bool(vector<double>)> f_domain,
+        vector<double> p0,
+        int iterations,
+        function<vector<double>(vector<double>)> N,
+        function<double(int)> T) {
+    auto s_current = p0;
+    auto s_global_best = p0;
+
+    uniform_real_distribution<> u_k(0.0, 1.0);
+
+    if (!f_domain(s_current)) throw std::invalid_argument("The p0 point must be in domain");
+
+    for (int k = 0; k < iterations; k++) {
+        auto s_next = N(s_current);
+        if (f(s_next) < f(s_current)) {
+            s_current = s_next;
+        } else {
+            double u = u_k(mt_generator);
+            if (u < exp(-abs(f(s_next) - f(s_current)) / T(k))) {
+                s_current = s_next;
+            }
+        }
+        if (f(s_current) < f(s_global_best)) {
+            s_global_best = s_current;
+        }
+    }
+    return s_global_best;
+}
+
 
 int main() {
     auto ackley = [](std::vector<double> v) {
@@ -48,69 +81,38 @@ int main() {
         return (std::abs(v[0]) <= 5) && (std::abs(v[1]) <= 5);
     };
 
-    auto beale = [](std::vector<double> v) {
-        double x = v.at(0), y = v.at(1);
-        return pow(1.5 - x + x * y, 2) + pow(2.25 - x + x * pow(y, 2), 2) + pow(2.625 - x + x * pow(y, 3), 2);
+    uniform_real_distribution<> distrib_r(-5, 5);
+    vector<double> ackley_p0 = {
+            distrib_r(mt_generator),
+            distrib_r(mt_generator),
     };
-    auto beale_domain = [](std::vector<double> v) {
-        return (std::abs(v[0]) <= 4.5) && (std::abs(v[1]) <= 4.5);
-    };
-
-    auto egg = [](std::vector<double> v) {
-        double x = v.at(0), y = v.at(1);
-        return -(y + 47) * sin(sqrt(std::abs(x / 2 + (y + 47)))) - x * sin(sqrt(std::abs(x - (y + 47))));
-    };
-    auto egg_domain = [](std::vector<double> v) {
-        return (std::abs(v[0]) <= 512) && (std::abs(v[1]) <= 512);
-    };
-
-    std::uniform_real_distribution<> distrib_r(-5, 5);
-    std::vector<double> ackley_p0 = {
-            distrib_r(gen),
-            distrib_r(gen),
-    };
-    std::uniform_real_distribution<> distrib_r_beal(-4.5, 4.5);
-    std::vector<double> beale_p0 = {
-            distrib_r_beal(gen),
-            distrib_r_beal(gen),
-    };
-    std::uniform_real_distribution<> distrib_r_egg(-512, 512);
-    std::vector<double> egg_p0 = {
-            distrib_r_egg(gen),
-            distrib_r_egg(gen),
-    };
-
 
     int choice = 0;
-    int iter = 0;
-    std::cout << "1. ackley\n" << "2. beale\n" << "3. egg holder\n===>";
-    std::cin >> choice;
-    std::cout << "Number of iterations\n===>";
-    std::cin >> iter;
-    if (iter <= 0 || iter > 10000)throw std::invalid_argument("Wrong number");
+    cout << "0 - hill\n1 - annealing\n";
+    cin >> choice;
     std::vector<double> result;
-
     switch (choice) {
-        case 1:
-            result = hill_climbing(ackley, ackley_domain, ackley_p0, iter);
+        case 0:
+            result = hill_climbing(ackley, ackley_domain, ackley_p0, 1000000);
             std::cout << result << " -> " << ackley(result) << std::endl;
             break;
-        case 2:
-            result = hill_climbing(beale, beale_domain, beale_p0, iter);
-            std::cout << result << " -> " << beale(result) << std::endl;
-            break;
-        case 3:
-            result = hill_climbing(egg, egg_domain, egg_p0, iter);
-            std::cout << result << " -> " << egg(result) << std::endl;
+        case 1:
+            result = simulated_annealing(
+                    ackley, ackley_domain, ackley_p0, 100000000,
+                    [](auto p) {
+                        normal_distribution<double> n(0.0, 0.3);
+                        for (auto &e: p) {
+                            e = e + n(mt_generator);
+                        }
+                        return p;
+                    },
+                    [](int k) { return 1000.0 / k; });
+            std::cout << result << " -> " << ackley(result) << std::endl;
             break;
         default:
             throw std::invalid_argument("Wrong number");
     }
 
-    //auto result = hill_climbing(ackley, ackley_domain, ackley_p0, 100);
-    //auto result = hill_climbing(beale, beale_domain, beale_p0, 1000);
-    //auto result = hill_climbing(egg, egg_domain, egg_p0, 1000);
-    //std::cout << result << " -> " << egg(result) << std::endl;
 
     return 0;
 }
