@@ -88,17 +88,20 @@ int main() {
     };
 
     int choice = 0;
+    int iters = 0;
     cout << "0 - hill\n1 - annealing\n";
     cin >> choice;
+    cout << "iterations: \n";
+    cin >> iters;
     std::vector<double> result;
     switch (choice) {
         case 0:
-            result = hill_climbing(ackley, ackley_domain, ackley_p0, 1000000);
+            result = hill_climbing(ackley, ackley_domain, ackley_p0, iters);
             std::cout << result << " -> " << ackley(result) << std::endl;
             break;
         case 1:
             result = simulated_annealing(
-                    ackley, ackley_domain, ackley_p0, 100000000,
+                    ackley, ackley_domain, ackley_p0, iters,
                     [](auto p) {
                         normal_distribution<double> n(0.0, 0.3);
                         for (auto &e: p) {
@@ -112,7 +115,5 @@ int main() {
         default:
             throw std::invalid_argument("Wrong number");
     }
-
-
     return 0;
 }
