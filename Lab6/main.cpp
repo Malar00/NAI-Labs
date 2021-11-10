@@ -1,10 +1,6 @@
-#include "main.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <iostream>
-#include <vector>
-
-// g++ `pkg-config --cflags opencv4` cv.cpp `pkg-config --libs opencv4`
 
 using namespace std;
 using namespace cv;
