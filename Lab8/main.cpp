@@ -45,57 +45,108 @@ int main(int argc, char **argv) {
     int high_H = max_value_H;
     int high_S = max_value;
     int high_V = max_value;
-    int down_width = 320;
-    int down_height = 200;
+    int down_width = 720;
+    int down_height = 480;
 
     namedWindow("parametry", WINDOW_AUTOSIZE);
     createTrackbar("low_H", "parametry", &low_H, max_value_H);
     createTrackbar("low_S", "parametry", &low_S, max_value_H);
     createTrackbar("low_V", "parametry", &low_V, max_value);
-    createTrackbar("high_H", "parametry", &high_H, max_value);
+    createTrackbar("high_H", "parametry", &high_H, max_value_H);
     createTrackbar("high_S", "parametry", &high_S, max_value);
     createTrackbar("high_V", "parametry", &high_V, max_value);
 
-
-    if (argc < 2) throw std::invalid_argument("Podaj argumenty");
-    down_width = atoi(argv[1]);
-    down_height = atoi(argv[2]);
-
+    //low_S=115;
+    //high_H=109;
 
     VideoCapture cap1(0);
     if (!cap1.isOpened())
         return -1;
 
+    int framecount = 0;
     while (true) {
-        int i = 0;
+        Mat frame;
+        cap1 >> frame;
+        framecount++;
 
-        Mat original_image, m;
-        cap1 >> original_image;
-        Mat k = getStructuringElement(MORPH_ELLIPSE, {5, 5});
-
-        cvtColor(original_image, m, COLOR_BGR2HSV);
-        imshow("original image" + to_string(i++), m);
-        resize(m, m, Size(down_width, down_height), INTER_LINEAR);
-        GaussianBlur(m, m, Size(9, 9), 0, 0);
-        inRange(m, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), m);
-        putText(m, "H: " + to_string(low_H) + " - " + to_string(high_H), cv::Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1,
-                100, 2, false);
-        putText(m, "S: " + to_string(low_S) + " - " + to_string(high_S), cv::Point(0, 50), cv::FONT_HERSHEY_DUPLEX, 1,
-                100, 2, false);
-        putText(m, "V: " + to_string(low_V) + " - " + to_string(high_V), cv::Point(0, 80), cv::FONT_HERSHEY_DUPLEX, 1,
-                100, 2, false);
-        imshow("capture " + to_string(i++), m);
+        flip(frame, frame, 1);
+        resize(frame, frame, Size(down_width, down_height), INTER_LINEAR);
 
 
-        if (waitKey(1) == 120) {
-            Rect2d r = selectROI(m, false);
-            Mat imCrop = m(r);
-            imshow("Image", imCrop);
-            imwrite("test.jpg", imCrop);
+        Mat hsv;
+        cvtColor(frame, hsv, COLOR_BGR2HSV);
+
+        Mat mask1, mask2;
+
+        inRange(hsv, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), mask1);
+        inRange(hsv, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), mask2);
+
+        Mat mask = mask1 | mask2;
+
+        imshow("mask", mask);
+
+
+
+
+        int dilation_size = 8;
+        auto structElem = getStructuringElement(MORPH_ELLIPSE,
+                                                Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                                                Point(dilation_size, dilation_size));
+        erode(mask, mask, structElem);
+        dilate(mask, mask, structElem);
+
+        Mat output;
+        bitwise_and(hsv, hsv, output, mask);
+
+        std::vector<std::vector<Point>> contours;
+        findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+        std::sort(contours.begin(), contours.end(), [](auto& a, auto& b) {
+            return contourArea(a, false) > contourArea(b, false);
+        });
+
+
+        if ((contours.size() > 0) && (contourArea(contours[0], false) > 10000)) {
+            drawContours(frame, contours, -1, 255, 3);
         }
-        if (waitKey(1) == 27) {
+        double biggest1 = 0;
+        double biggest2 = 0;
+        Rect bounding_rect1, bounding_rect2;
+        int biggest_idx1 = 0;
+        int biggest_idx2 = 0;
+
+        for (size_t i = 0; i < contours.size(); i++) {
+            double area = contourArea(contours[i]);
+            if (area > biggest1) {
+                biggest1 = area;
+                biggest_idx1 = i;
+                bounding_rect1 = boundingRect(contours[i]);
+            }
+            else if (area > biggest2) {
+                biggest2 = area;
+                biggest_idx2 = i;
+                bounding_rect2 = boundingRect(contours[i]);
+            }
+        }
+
+        drawContours(frame, contours, biggest_idx1, Scalar(255,0,0), 3);
+        drawContours(frame, contours, biggest_idx2, Scalar(255,0,0), 3);
+
+        auto cx1 = bounding_rect1.x + bounding_rect1.width / 2;
+        auto cy1 = bounding_rect1.y + bounding_rect1.height / 2;
+
+        auto cx2 = bounding_rect2.x + bounding_rect2.width / 2;
+        auto cy2 = bounding_rect2.y + bounding_rect2.height / 2;
+
+
+        if (std::abs(cy1 - cy2) < 100.0) {
+            line(frame, Point(cx1, cy1), Point(cx2, cy2), Scalar(0, 0, 255), 3);
+        }
+
+        imshow("frame", frame);
+
+        int key_pressed = waitKey(10);
+        if (key_pressed == 27) {
             break;
         }
     }
-    return 0;
 }
