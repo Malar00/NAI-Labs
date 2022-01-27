@@ -24,13 +24,13 @@ vector<Rect> prevFrameSides;
 int main(int argc, char **argv) {
     int totalFaces = 0;
     CascadeClassifier side_cascade;
-    VideoCapture cap1(0);
+    VideoCapture cap1("../faces2.mp4");
     if (!cap1.isOpened()) {
         return -1;
     }
     Mat frame;
 
-    if (!side_cascade.load("../haarcascade_profileface.xml")) {
+    if (!side_cascade.load("../haarcascade_frontalface_alt.xml")) {
         return 1;
     }
     if (!cap1.isOpened()) {
@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
 
         side_cascade.detectMultiScale(frame_gray, detectedSides, 1.1, 4, 0, Size(30, 30));
 
+        int faces = 0;
         for (size_t i = 0; i < detectedSides.size(); i++) {
             rectangle(frame, Point(detectedSides[i].x, detectedSides[i].y),
                       Point(detectedSides[i].x + detectedSides[i].width, detectedSides[i].y + detectedSides[i].height),
@@ -61,7 +62,7 @@ int main(int argc, char **argv) {
                                    detectedSides[i].y + detectedSides[i].height));
 
 
-            int faces = 0;
+            faces = 0;
             //Old faces
             for (auto &oldSide: prevFrameSides) {
                 if (abs(face.x - oldSide.x) <= 250 &&
@@ -74,9 +75,10 @@ int main(int argc, char **argv) {
                     totalFaces++;
                 }
             }
+
+
             prevFrameSides.clear();
             prevFrameSides.push_back(face);
-
         }
         putText(frame, "Total faces: " + to_string(totalFaces + 1),
                 Point(10, 20), FONT_HERSHEY_SIMPLEX,
